@@ -1,26 +1,33 @@
 from fastapi import FastAPI, Body
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional
 import pandas as pd
 from datetime import datetime
+import os
 
 app = FastAPI()
 
-# Carrega o CSV uma vez ao iniciar
-df = pd.read_csv("BI_Eventos.csv")
-df["competencia"] = pd.to_datetime(df["competencia"])
-df["valor"] = pd.to_numeric(df["valor"], errors="coerce")
+# Verifica se o arquivo existe
+CSV_PATH = "BI_Eventos.csv"
+if os.path.exists(CSV_PATH):
+    df = pd.read_csv(CSV_PATH)
+    df["competencia"] = pd.to_datetime(df["competencia"], errors="coerce")
+    df["valor"] = pd.to_numeric(df["valor"], errors="coerce")
+else:
+    df = pd.DataFrame(columns=["nome_beneficiario", "valor", "competencia"])
 
 class FiltroEntrada(BaseModel):
-    data_inicio: Optional[str] = None  # formato: "2024-06-01"
+    data_inicio: Optional[str] = None
     data_fim: Optional[str] = None
     top_n: Optional[int] = 10
 
 @app.post("/top_beneficiarios")
 def top_beneficiarios(filtro: FiltroEntrada = Body(...)):
+    if df.empty:
+        return {"erro": "Arquivo CSV não encontrado ou vazio."}
+
     df_filtrado = df.copy()
 
-    # Aplica filtros de data se fornecidos
     if filtro.data_inicio:
         data_ini = pd.to_datetime(filtro.data_inicio)
         df_filtrado = df_filtrado[df_filtrado["competencia"] >= data_ini]
@@ -29,7 +36,6 @@ def top_beneficiarios(filtro: FiltroEntrada = Body(...)):
         data_fim = pd.to_datetime(filtro.data_fim)
         df_filtrado = df_filtrado[df_filtrado["competencia"] <= data_fim]
 
-    # Agrupa e soma
     resultado = (
         df_filtrado.groupby("nome_beneficiario")["valor"]
         .sum()
@@ -38,8 +44,11 @@ def top_beneficiarios(filtro: FiltroEntrada = Body(...)):
         .head(filtro.top_n)
     )
 
-    # Formata para resposta
     return {
         "total_eventos": len(df_filtrado),
         "top_beneficiarios": resultado.to_dict(orient="records")
     }
+
+@app.get("/")
+def root():
+    return {"status": "API está rodando"}
