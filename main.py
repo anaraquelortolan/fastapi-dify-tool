@@ -34,5 +34,12 @@ def top_beneficiarios(filtro: FiltroEntrada = Body(...)):
         df_filtrado.groupby("nome_beneficiario")["valor"]
         .sum()
         .reset_index()
-        .sort_values(by="valor", asc_
+        .sort_values(by="valor", ascending=False)
+        .head(filtro.top_n)
+    )
 
+    # Formata para resposta
+    return {
+        "total_eventos": len(df_filtrado),
+        "top_beneficiarios": resultado.to_dict(orient="records")
+    }
