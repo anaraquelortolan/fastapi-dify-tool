@@ -7,15 +7,6 @@ import os
 
 app = FastAPI()
 
-# Verifica se o arquivo existe
-CSV_PATH = "BI_Eventos.csv"
-if os.path.exists(CSV_PATH):
-    df = pd.read_csv(CSV_PATH)
-    df["competencia"] = pd.to_datetime(df["competencia"], errors="coerce")
-    df["valor"] = pd.to_numeric(df["valor"], errors="coerce")
-else:
-    df = pd.DataFrame(columns=["nome_beneficiario", "valor", "competencia"])
-
 class FiltroEntrada(BaseModel):
     data_inicio: Optional[str] = None
     data_fim: Optional[str] = None
@@ -23,8 +14,13 @@ class FiltroEntrada(BaseModel):
 
 @app.post("/top_beneficiarios")
 def top_beneficiarios(filtro: FiltroEntrada = Body(...)):
-    if df.empty:
-        return {"erro": "Arquivo CSV não encontrado ou vazio."}
+    CSV_PATH = "BI_Eventos.csv"
+    if not os.path.exists(CSV_PATH):
+        return {"erro": "Arquivo CSV não encontrado"}
+
+    df = pd.read_csv(CSV_PATH)
+    df["competencia"] = pd.to_datetime(df["competencia"], errors="coerce")
+    df["valor"] = pd.to_numeric(df["valor"], errors="coerce")
 
     df_filtrado = df.copy()
 
